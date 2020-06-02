@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
     argc -= optind; // argc is now the number of non-option arguments and argv[0] is the first
 
     if (argc != 1) { // one non-option
-        fprintf(stderr, "usage: listdir3 [-a] [-r] directory\n");
+        fprintf(stderr, "usage: ls [-a] [-r] directory\n");
         exit(1);
     }
 
