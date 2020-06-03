@@ -34,8 +34,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    fin = fopen(files[0], "r");
-    fout = fopen(files[1], "w");
+    if ( (fin = fopen(files[0], "r")) == NULL ) {
+        perror(files[0]);
+        exit(2);
+    }
+    if ( (fout = fopen(files[1], "w")) == NULL ) {
+        perror(files[1]);
+        exit(3);
+    }
     
     while ( (count = fread(buf,1,BSIZE,fin)) > 0 ) /* read one lot of BSIZE bytes */
         fwrite(buf,1,count,fout); /* write one lot of BSIZE bytes */
