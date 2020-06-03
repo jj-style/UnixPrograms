@@ -94,16 +94,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    if (argv[0][strlen(argv[0])-1] == '/')
-            argv[0][strlen(argv[0])-1] = '\0';
-    if (argv[0][0] == '/') {
-        strncpy(dirname,argv[0],PATH_MAX);
-    } else {
-        getcwd(dirname,PATH_MAX);
-        strcat(dirname,"/");
-        strcat(dirname,argv[0]);
-    }
-
+    realpath(argv[0],dirname);
     listdir(dirname);
 
     return 0;
