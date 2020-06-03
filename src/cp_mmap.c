@@ -3,7 +3,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdlib.h>
-#include <string.h>
+#include <string.h> /* needed for memcpy */
 #include <stdio.h>
 #include <unistd.h>
 #include <linux/limits.h>
@@ -21,20 +21,8 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    for(i=0;i<2;++i) {
-        /* remove trailing / in source and destination if there is one */
-        if (argv[i+1][strlen(argv[i+1])-1] == '/')
-            argv[i+1][strlen(argv[i+1])-1] = '\0';
-        
-        /* build absolute path if not given */
-        if (argv[i+1][0] == '/') {
-            strncpy(files[i],argv[i+1],PATH_MAX);
-        } else {
-            getcwd(files[i],PATH_MAX);
-            strcat(files[i],"/");
-            strcat(files[i],argv[i+1]);
-        }
-    }
+    for(i=0;i<2;++i)
+        realpath(argv[i+1],files[i]); /* build absolute path if not given for the arguments */
 
     if ( (fin = open(files[0], O_RDONLY)) < 0 ) {
         perror(files[0]);
