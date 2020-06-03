@@ -5,15 +5,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#define MAX_INPUT_LENGTH 100
+#include <linux/limits.h>
 
 int parse_input_and_args(char **upstream, char **downstream) {
-    char buf[MAX_INPUT_LENGTH];
+    char buf[ARG_MAX];
 
     downstream[0] = NULL;
     printf("> ");
-    if(fgets(buf,MAX_INPUT_LENGTH,stdin) == NULL)
+    if(fgets(buf,ARG_MAX,stdin) == NULL)
         return -1;
     buf[strlen(buf)-1] = '\0'; /* strip newline from input */
 
@@ -33,8 +32,8 @@ int parse_input_and_args(char **upstream, char **downstream) {
 
 int main() {
 
-    char *upstream[MAX_INPUT_LENGTH];
-    char *downstream[MAX_INPUT_LENGTH];
+    char *upstream[ARG_MAX/2];
+    char *downstream[ARG_MAX/2];
     int p[2];
 
     while(parse_input_and_args(upstream, downstream) > 0) {        
