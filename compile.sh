@@ -21,5 +21,5 @@ do
     # echo "$source_file"
     file_name=$(basename $source_file)
     printf "compiling %s..." $file_name
-    gcc -o $DST/${file_name%.*}.o $source_file && echo "ok" || echo "error"
+    gcc -g -o $DST/${file_name%.*}.o $source_file && echo "ok" || echo "error"
 done
