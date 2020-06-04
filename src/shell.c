@@ -16,16 +16,6 @@ int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *
     *append = 0;
 
     write(0,">: ",3);
-    // int ch, i=0;
-    // while( (ch=getc(stdin)) != EOF ) {
-    //     if(i+1 < ARG_MAX)
-    //         buf[i++] = ch;
-    //     if(ch == '\n')
-    //         break;
-    // }
-    // buf[i-1] = '\0';
-    // if(i == 0)
-    //     return -1;
 
     if(fgets(buf,ARG_MAX,stdin) == NULL)
         return -1;
