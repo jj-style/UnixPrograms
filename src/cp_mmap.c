@@ -60,6 +60,9 @@ int main(int argc, char *argv[]) {
         exit(5);
     }
 
+    close(fin);
+    close(fout);
+
     return 0;
 
 }
