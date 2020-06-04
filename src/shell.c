@@ -7,19 +7,45 @@
 #include <string.h>
 #include <linux/limits.h>
 #include <fcntl.h>
+#include <libgen.h>
+#include <pwd.h>
+
+int _cd(char **args) {
+    if (chdir(args[1]) < 0) {
+        perror(args[1]);
+    }
+    return 1;
+}
+
+int built_in(char **command) {
+    static char *built_in_commands[] = {"cd"};
+    static int(*built_in_functions[])(char **) = {_cd};
+    static int num_built_ins = sizeof(built_in_commands) / sizeof(char *);
+    int i;
+    for(i=0;i<num_built_ins;++i) {
+        if (!strcmp(built_in_commands[i],command[0]))
+            return (*built_in_functions[i])(command);
+    }
+    return -1;
+}
 
 int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *append) {
     static char buf[ARG_MAX];
+    static char path[PATH_MAX]; getcwd(path,PATH_MAX);
+    static char hname[32]; gethostname(hname,32);
+    struct passwd *u; u = getpwuid(getuid());
+    char prompt[64];
 
-    downstream[0] = NULL;
-    strcpy(fwrite,"");
-    *append = 0;
-
-    write(0,">: ",3);
+    sprintf(prompt,"%s@%s:%s>: ",u->pw_name,hname,basename(path));
+    write(0,prompt,strlen(prompt));
 
     if(fgets(buf,ARG_MAX,stdin) == NULL)
         return -1;
     buf[strlen(buf)-1] = '\0'; /* strip newline from input */
+
+    downstream[0] = NULL;
+    strcpy(fwrite,"");
+    *append = 0;
 
     *upstream++ = strtok(buf," "); /* definitely one thing entered as didn't return above from NULL input */
     while( *upstream = strtok(NULL," ") ) {
@@ -108,7 +134,13 @@ int main() {
 
     while(parse_input_and_args(upstream, downstream, fwrite, &append) > 0) {        
         if (downstream[0] == NULL) {
-            /* no downstream = no pipe so just normal command */
+            /* no downstream = no pipe so just normal command 
+                before fork, check if built in command to execute as must execute in main
+            */
+
+            if (built_in(upstream) != -1)
+                continue;
+
             if(fork() == 0) {
                 /* child */
                 if (strlen(fwrite) == 0)
