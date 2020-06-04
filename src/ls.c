@@ -89,12 +89,15 @@ int main(int argc, char *argv[]) {
     argv += optind; // move past the options
     argc -= optind; // argc is now the number of non-option arguments and argv[0] is the first
 
-    if (argc != 1) { // one non-option
-        fprintf(stderr, "usage: ls [-a] [-r] directory\n");
+    if (argc != 1 && argc != 0) { // one optional
+        fprintf(stderr, "usage: ls [-a] [-r] (directory)\n");
         exit(1);
     }
 
-    realpath(argv[0],dirname);
+    if (argc == 0)
+        realpath(".",dirname);
+    else
+        realpath(argv[0],dirname);
     listdir(dirname);
 
     return 0;
