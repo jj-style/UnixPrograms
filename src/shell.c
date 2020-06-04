@@ -9,12 +9,24 @@
 #include <fcntl.h>
 
 int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *append) {
-    char buf[ARG_MAX];
+    static char buf[ARG_MAX];
 
     downstream[0] = NULL;
     strcpy(fwrite,"");
     *append = 0;
-    printf("> ");
+
+    write(0,">: ",3);
+    // int ch, i=0;
+    // while( (ch=getc(stdin)) != EOF ) {
+    //     if(i+1 < ARG_MAX)
+    //         buf[i++] = ch;
+    //     if(ch == '\n')
+    //         break;
+    // }
+    // buf[i-1] = '\0';
+    // if(i == 0)
+    //     return -1;
+
     if(fgets(buf,ARG_MAX,stdin) == NULL)
         return -1;
     buf[strlen(buf)-1] = '\0'; /* strip newline from input */
@@ -23,14 +35,19 @@ int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *
     while( *upstream = strtok(NULL," ") ) {
         if (!strcmp(*upstream, "|")) {
             *upstream = NULL;  /* "|" consumed, set upstream to NULL and begin parsing for the downstream */
-            while (*downstream++ = strtok(NULL, " ")) { /* parses up to the end of the string setting the end of downstream to NULL */
-                ;
+            while (*downstream = strtok(NULL, " ")) { /* parses up to the end of the string setting the end of downstream to NULL */
+                if (!strcmp(*downstream, ">") || !strcmp(*downstream, ">>")) {
+                    *append = !strcmp(*downstream,">>");
+                    *downstream = NULL;
+                    strcpy(fwrite,strtok(NULL, ""));
+                    return 1;
+                }
+                ++downstream;
             }
             return 1;
         } else if (!strcmp(*upstream, ">") || !strcmp(*upstream, ">>")) {
             *append = !strcmp(*upstream,">>");
             *upstream = NULL;
-            char *tok;
             strcpy(fwrite,strtok(NULL, ""));
             return 1;
         }
@@ -106,9 +123,8 @@ int main() {
                 /* child */
                 if (strlen(fwrite) == 0)
                     execute_upstream();
-                else {
+                else
                     redirect_to_file(execute_upstream,fwrite,append);
-                }
             } else
                 wait(0); /* don't do anything with return status of child yet */
         } else {
@@ -127,7 +143,10 @@ int main() {
                 dup2(p[0],0);
                 close(p[1]);
 
-                execute_downstream();
+                if(strlen(fwrite) == 0)
+                    execute_downstream();
+                else
+                    redirect_to_file(execute_downstream,fwrite,append);
             }
             else {
                 /* close ends of pipes */
