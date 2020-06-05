@@ -12,6 +12,13 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+int _cd(char **args);
+int _help(char **args);
+
+static char *built_in_commands[] = {"cd","help"};
+static int(*built_in_functions[])(char **) = {_cd,_help};
+static int num_built_ins = sizeof(built_in_commands) / sizeof(char *);
+
 int _cd(char **args) {
     if (chdir(args[1]) < 0) {
         perror(args[1]);
@@ -19,10 +26,14 @@ int _cd(char **args) {
     return 1;
 }
 
+int _help(char **args) {
+    int i;
+    for(i=0;i<num_built_ins;++i) {
+        printf("%s\n",built_in_commands[i]);
+    }
+}
+
 int built_in(char **command) {
-    static char *built_in_commands[] = {"cd"};
-    static int(*built_in_functions[])(char **) = {_cd};
-    static int num_built_ins = sizeof(built_in_commands) / sizeof(char *);
     int i;
     for(i=0;i<num_built_ins;++i) {
         if (!strcmp(built_in_commands[i],command[0]))
