@@ -9,6 +9,8 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include <pwd.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 int _cd(char **args) {
     if (chdir(args[1]) < 0) {
@@ -30,32 +32,37 @@ int built_in(char **command) {
 }
 
 int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *append) {
-    static char buf[ARG_MAX];
+    static char *buf, *rest;
     static char path[PATH_MAX]; getcwd(path,PATH_MAX);
     static char hname[32]; gethostname(hname,32);
     struct passwd *u; u = getpwuid(getuid());
     char prompt[64];
 
     sprintf(prompt,"%s@%s:%s>: ",u->pw_name,hname,basename(path));
-    write(0,prompt,strlen(prompt));
 
-    if(fgets(buf,ARG_MAX,stdin) == NULL)
+    if (buf) free(buf);
+    buf = readline(prompt);
+    if (!buf) {
+        printf("\n");
         return -1;
-    buf[strlen(buf)-1] = '\0'; /* strip newline from input */
+    }
+    if (strlen(buf) > 0)
+        add_history(buf);
+    rest = buf;
 
     downstream[0] = NULL;
     strcpy(fwrite,"");
     *append = 0;
 
-    *upstream++ = strtok(buf," "); /* definitely one thing entered as didn't return above from NULL input */
-    while( *upstream = strtok(NULL," ") ) {
+    *upstream++ = strtok_r(rest," ",&rest); /* definitely one thing entered as didn't return above from NULL input */
+    while( *upstream = strtok_r(rest," ",&rest) ) {
         if (!strcmp(*upstream, "|")) {
             *upstream = NULL;  /* "|" consumed, set upstream to NULL and begin parsing for the downstream */
-            while (*downstream = strtok(NULL, " ")) { /* parses up to the end of the string setting the end of downstream to NULL */
+            while (*downstream = strtok_r(rest, " ",&rest)) { /* parses up to the end of the string setting the end of downstream to NULL */
                 if (!strcmp(*downstream, ">") || !strcmp(*downstream, ">>")) {
                     *append = !strcmp(*downstream,">>");
                     *downstream = NULL;
-                    strcpy(fwrite,strtok(NULL, ""));
+                    strcpy(fwrite,strtok_r(rest, "",&rest));
                     return 1;
                 }
                 ++downstream;
@@ -64,7 +71,7 @@ int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *
         } else if (!strcmp(*upstream, ">") || !strcmp(*upstream, ">>")) {
             *append = !strcmp(*upstream,">>");
             *upstream = NULL;
-            strcpy(fwrite,strtok(NULL, ""));
+            strcpy(fwrite,strtok_r(rest, "",&rest));
             return 1;
         }
         ++upstream;
@@ -82,7 +89,6 @@ void redirect_to_file(void (*function)(), char *fout, int append) {
         close(p[0]);
 
         (*function)();
-        printf("after function\n");
         exit(0); // in case function passed doesn't exit the child
     } 
     if(fork() == 0) {
@@ -113,7 +119,7 @@ void redirect_to_file(void (*function)(), char *fout, int append) {
 }
 
 int main() {
-
+    rl_bind_key('\t', rl_complete);
     char *upstream[ARG_MAX/2];
     char *downstream[ARG_MAX/2];
     char fwrite[PATH_MAX];
@@ -132,7 +138,8 @@ int main() {
         exit(1);
     }
 
-    while(parse_input_and_args(upstream, downstream, fwrite, &append) > 0) {        
+    while(parse_input_and_args(upstream, downstream, fwrite, &append) > 0) {   
+        if (!upstream[0]) continue;
         if (downstream[0] == NULL) {
             /* no downstream = no pipe so just normal command 
                 before fork, check if built in command to execute as must execute in main
