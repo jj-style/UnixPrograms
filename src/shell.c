@@ -11,19 +11,40 @@
 #include <pwd.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <signal.h>
+#include <sys/types.h>
 
 int _cd(char **args);
 int _help(char **args);
+int _kill(char **args);
+int _jobs(char **args);
 
-static char *built_in_commands[] = {"cd","help"};
-static int(*built_in_functions[])(char **) = {_cd,_help};
+static char *built_in_commands[] = {"cd","kill","jobs","help"};
+static int(*built_in_functions[])(char **) = {_cd,_kill,_jobs,_help};
 static int num_built_ins = sizeof(built_in_commands) / sizeof(char *);
+
+char bg_jobs[128][128];
+int num_bg_jobs;
 
 int _cd(char **args) {
     if (chdir(args[1]) < 0) {
         perror(args[1]);
     }
     return 1;
+}
+
+int _kill(char **args) {
+    pid_t p = atoi(args[1]);
+    printf("KILL PID: %d\n", p);
+    if( kill(p, SIGKILL) == -1)
+        perror(args[1]);
+}
+
+int _jobs(char **args) {
+    int i;
+    for(i=0;i<num_bg_jobs;++i) {
+        printf("%d: %s\n",i+1,bg_jobs[i]);
+    }
 }
 
 int _help(char **args) {
@@ -42,14 +63,22 @@ int built_in(char **command) {
     return -1;
 }
 
-int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *append) {
+int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *append, int *bg_up, int *bg_down) {
     static char *buf, *rest;
     static char path[PATH_MAX]; getcwd(path,PATH_MAX);
     static char hname[32]; gethostname(hname,32);
     struct passwd *u; u = getpwuid(getuid());
     char prompt[64];
+    int i;
 
     sprintf(prompt,"%s@%s:%s>: ",u->pw_name,hname,basename(path));
+
+    upstream[0] = NULL;
+    downstream[0] = NULL;
+    strcpy(fwrite,"");
+    *append = 0;
+    *bg_up = 0;
+    *bg_down = 0;
 
     if (buf) free(buf);
     buf = readline(prompt);
@@ -59,11 +88,10 @@ int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *
     }
     if (strlen(buf) > 0)
         add_history(buf);
+    else
+        return 1;
     rest = buf;
 
-    downstream[0] = NULL;
-    strcpy(fwrite,"");
-    *append = 0;
 
     *upstream++ = strtok_r(rest," ",&rest); /* definitely one thing entered as didn't return above from NULL input */
     while( *upstream = strtok_r(rest," ",&rest) ) {
@@ -74,10 +102,17 @@ int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *
                     *append = !strcmp(*downstream,">>");
                     *downstream = NULL;
                     strcpy(fwrite,strtok_r(rest, "",&rest));
+                    for(i=0;i<sizeof(upstream)/sizeof(char *);++i){
+                        if(!downstream[i]) break;
+                    }
+                    *bg_down = !strcmp(downstream[i-1],"&");
+                    if(*bg_down)
+                        downstream[i-1] = NULL;
                     return 1;
                 }
                 ++downstream;
             }
+            *bg_down = !strcmp(*downstream,"&");
             return 1;
         } else if (!strcmp(*upstream, ">") || !strcmp(*upstream, ">>")) {
             *append = !strcmp(*upstream,">>");
@@ -87,6 +122,12 @@ int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *
         }
         ++upstream;
     }
+    for(i=0;i<sizeof(upstream)/sizeof(char *);++i){
+        if(!upstream[i]) break;
+    }
+    *bg_up = !strcmp(upstream[i-1],"&");
+    if(*bg_up)
+        upstream[i-1] = NULL;
     return 1;
 }
 
@@ -134,7 +175,7 @@ int main() {
     char *upstream[ARG_MAX/2];
     char *downstream[ARG_MAX/2];
     char fwrite[PATH_MAX];
-    int append;
+    int append, bg_up, bg_down;
     int p[2];
 
     void execute_upstream() {
@@ -149,7 +190,7 @@ int main() {
         exit(1);
     }
 
-    while(parse_input_and_args(upstream, downstream, fwrite, &append) > 0) {   
+    while(parse_input_and_args(upstream, downstream, fwrite, &append, &bg_up, &bg_down) > 0) {   
         if (!upstream[0]) continue;
         if (downstream[0] == NULL) {
             /* no downstream = no pipe so just normal command 
@@ -159,14 +200,23 @@ int main() {
             if (built_in(upstream) != -1)
                 continue;
 
-            if(fork() == 0) {
+            char bg_name[128];
+            pid_t pid = fork();
+            if(pid == 0) {
                 /* child */
                 if (strlen(fwrite) == 0)
                     execute_upstream();
                 else
                     redirect_to_file(execute_upstream,fwrite,append);
-            } else
-                wait(0); /* don't do anything with return status of child yet */
+            } else {
+                if(!bg_up)
+                    waitpid(pid,NULL,0); /* don't do anything with return status of child yet */
+                else {
+                    printf("background process started: %d\n", pid);
+                    sprintf(bg_name, "%s[%d]",upstream[0],pid);
+                    strcpy(bg_jobs[num_bg_jobs++],bg_name);
+                }
+            }
         } else {
             /* is downstream = pipe so fork again */
             pipe(p);
