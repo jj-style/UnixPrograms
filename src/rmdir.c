@@ -22,4 +22,6 @@ int main(int argc, char *argv[]) {
     for(i=0;i<argc-1&&i<MAX_ARGS;++i)
         if(rmdir(fullpaths[i]) < 0)
             perror(basename(fullpaths[i]));
+
+    return 0;
 }
