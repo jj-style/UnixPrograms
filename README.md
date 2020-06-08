@@ -14,6 +14,7 @@ A little collection of basic Unix/Linux command line programs written in C along
     **IMPORTANT** - this only works if moving around on the same filesystem as it involves the use of inodes.
 * `ln [-s] target directory` - create a link to a file, use the -s flag for soft links.
 * `rm [-r] file [file file ...]` - delete a file from the filesystem. Use -r for recursive to delete a directory. Can supply up to 100 files as arguments to delete
+* `touch file [file file ...]` - create an empty file on the file system. Can supply up to 100 files to create
 * `id` - list user ID, group ID and all groups of which user is a member
 
 # Build
