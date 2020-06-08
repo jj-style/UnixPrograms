@@ -15,7 +15,8 @@ A little collection of basic Unix/Linux command line programs written in C along
 * `ln [-s] target directory` - create a link to a file, use the -s flag for soft links.
 * `rm [-r] file [file file ...]` - delete a file from the filesystem. Use -r for recursive to delete a directory. Can supply up to 100 files as arguments to delete
 * `touch file [file file ...]` - create an empty file on the file system. Can supply up to 100 files to create
-* `mkdir dir [dir dir ...]` - - create an empty directory on the file system. Can supply up to 100 directories to create. Intermediate directories will not be created
+* `mkdir dir [dir dir ...]` - create an empty directory on the file system. Can supply up to 100 directories to create. Intermediate directories will not be created
+* `rmdir dir [dir dir ...]` - remove an empty directory on the file system. Can supply up to 100 directories to delete
 * `id` - list user ID, group ID and all groups of which user is a member
 * `whoami` - print username associated with the effective user ID of the process
 
