@@ -16,6 +16,7 @@ A little collection of basic Unix/Linux command line programs written in C along
 * `rm [-r] file [file file ...]` - delete a file from the filesystem. Use -r for recursive to delete a directory. Can supply up to 100 files as arguments to delete
 * `touch file [file file ...]` - create an empty file on the file system. Can supply up to 100 files to create
 * `id` - list user ID, group ID and all groups of which user is a member
+* `whoami` - print username associated with the effective user ID of the process
 
 # Build
 Run the `compile.sh` script to compile all programs into a build folder.
