@@ -17,6 +17,7 @@ A little collection of basic Unix/Linux command line programs written in C along
 * `touch file [file file ...]` - create an empty file on the file system. Can supply up to 100 files to create
 * `mkdir dir [dir dir ...]` - create an empty directory on the file system. Can supply up to 100 directories to create. Intermediate directories will not be created
 * `rmdir dir [dir dir ...]` - remove an empty directory on the file system. Can supply up to 100 directories to delete
+* `cmp [-a] file1 file2` - compare two files byte by byte. Set the -a flag to list all differences, otherwise will stop after the first difference, if there is one
 * `id` - list user ID, group ID and all groups of which user is a member
 * `whoami` - print username associated with the effective user ID of the process
 
