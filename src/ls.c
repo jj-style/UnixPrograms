@@ -8,8 +8,9 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <linux/limits.h>
+#include <libgen.h>
 
-int aflag=0, rflag=0;
+int aflag=0, rflag=0, lflag=0;
 
 void listfile(char *fname) {
     struct stat sb;
@@ -21,23 +22,26 @@ void listfile(char *fname) {
         return;
     }
 
-    printf("%s", filetype[(sb.st_mode >> 12) & 017]);
-    printf("%c%c%c%c%c%c%c%c%c",
-    (sb.st_mode & S_IRUSR) ? 'r' : '-',
-    (sb.st_mode & S_IWUSR) ? 'w' : '-',
-    (sb.st_mode & S_IXUSR) ? 'x' : '-',
-    (sb.st_mode & S_IRGRP) ? 'r' : '-',
-    (sb.st_mode & S_IWGRP) ? 'w' : '-',
-    (sb.st_mode & S_IXGRP) ? 'x' : '-',
-    (sb.st_mode & S_IROTH) ? 'r' : '-',
-    (sb.st_mode & S_IWOTH) ? 'w' : '-',
-    (sb.st_mode & S_IXOTH) ? 'x' : '-'
-    );
-    printf("%8ld", sb.st_size);
-    char *s = ctime(&sb.st_atime);
-    s[strlen(s)-1] = '\0';  /* remove trailing newline added by ctime */
-    printf("  %s", s);
-    printf("  %s\n",fname);
+    if(lflag) {
+        printf("%s", filetype[(sb.st_mode >> 12) & 017]);
+        printf("%c%c%c%c%c%c%c%c%c",
+        (sb.st_mode & S_IRUSR) ? 'r' : '-',
+        (sb.st_mode & S_IWUSR) ? 'w' : '-',
+        (sb.st_mode & S_IXUSR) ? 'x' : '-',
+        (sb.st_mode & S_IRGRP) ? 'r' : '-',
+        (sb.st_mode & S_IWGRP) ? 'w' : '-',
+        (sb.st_mode & S_IXGRP) ? 'x' : '-',
+        (sb.st_mode & S_IROTH) ? 'r' : '-',
+        (sb.st_mode & S_IWOTH) ? 'w' : '-',
+        (sb.st_mode & S_IXOTH) ? 'x' : '-'
+        );
+        printf("%8ld", sb.st_size);
+        char *s = ctime(&sb.st_atime);
+        s[strlen(s)-1] = '\0';  /* remove trailing newline added by ctime */
+        printf("  %s", s);
+        printf("  %s\n",basename(fname));
+    } else
+        printf("%s ",basename(fname));
 }
 
 void listdir(char *dname) {
@@ -51,6 +55,8 @@ void listdir(char *dname) {
         exit(1);
     }
     
+    if(rflag)
+        printf("%s\n",basename(dname));
     while ((info = readdir(d)) != NULL) {
         if (info->d_name[0] == '.' && !aflag) continue;
             /* build new fullpath */
@@ -65,6 +71,7 @@ void listdir(char *dname) {
                 listfile(fullpathname);
     }
     closedir(d);
+    printf("\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -73,13 +80,16 @@ int main(int argc, char *argv[]) {
 
     opterr = 0; // delete this to see getopt's own error messages
 
-    while( (c=getopt(argc,argv,"ar")) != EOF ) {
+    while( (c=getopt(argc,argv,"arl")) != EOF ) {
         switch(c) {
             case 'a':
                 aflag = 1;
                 break;
             case 'r':
                 rflag = 1;
+                break;
+            case 'l':
+                lflag = 1;
                 break;
             case '?':
                 fprintf(stderr, "invalid option -%c\n",optopt);
@@ -90,7 +100,7 @@ int main(int argc, char *argv[]) {
     argc -= optind; // argc is now the number of non-option arguments and argv[0] is the first
 
     if (argc != 1 && argc != 0) { // one optional
-        fprintf(stderr, "usage: ls [-a] [-r] (directory)\n");
+        fprintf(stderr, "usage: ls [-a] [-r] [-l] (directory)\n");
         exit(1);
     }
 
