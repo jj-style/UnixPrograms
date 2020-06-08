@@ -1,3 +1,4 @@
+/* create an empty file */
 #include <stdio.h>
 #include <linux/limits.h>
 #include <fcntl.h>
