@@ -13,7 +13,7 @@ A little collection of basic Unix/Linux command line programs written in C along
 * `mv source destination` - move a file from a soure to a destination. Moves file into a directory if the destination is a directory.  
     **IMPORTANT** - this only works if moving around on the same filesystem as it involves the use of inodes.
 * `ln [-s] target directory` - create a link to a file, use the -s flag for soft links.
-* `rm file [file file ...]` - delete a file from the filesystem. Only supports files, not directories. Can supply up to 100 files as arguments to delete
+* `rm [-r] file [file file ...]` - delete a file from the filesystem. Use -r for recursive to delete a directory. Can supply up to 100 files as arguments to delete
 * `id` - list user ID, group ID and all groups of which user is a member
 
 # Build
