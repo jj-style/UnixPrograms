@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <libgen.h>
 
 int main(int argc, char *argv[]) {
     char files[2][PATH_MAX];
@@ -34,8 +35,18 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    /* hard link files */
-    if( link(files[0],files[1]) == -1) {
+    /* hard link files - destination could be directory so if it is then move inside with basename */
+    char destination[PATH_MAX+1];
+    if(stat(files[1],&sb) < 0) {
+        perror(argv[1]);
+        exit(1);
+    }
+    if(S_ISDIR(sb.st_mode))
+        sprintf(destination,"%s/%s",files[1],basename(files[0]));
+    else
+        sprintf(destination,"%s",files[1]);
+
+    if( link(files[0],destination) == -1) {
         perror("unable to move");
         exit(1);
     }
