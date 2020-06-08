@@ -1,5 +1,4 @@
 /* A basic shell program supporting piping */
-
 #include <unistd.h>
 #include <sys/wait.h>
 #include <stdlib.h>
@@ -14,6 +13,66 @@
 #include <signal.h>
 #include <sys/types.h>
 
+/* linked list structure for holding background jobs */
+struct bg_job {
+    char *pname;
+    pid_t pid;
+    struct bg_job *next;
+};
+
+struct bg_job *head = NULL;
+
+void add_bg_job(char* name, pid_t pid) {
+    struct bg_job *new_bg_job = (struct bg_job*) malloc(sizeof(struct bg_job));
+    new_bg_job -> next = head;
+    new_bg_job -> pid = pid;
+    // new_bg_job -> pname = name;
+    new_bg_job->pname = (char *) malloc(strlen(name));
+    strcpy(new_bg_job->pname,name);
+    head = new_bg_job;
+}
+
+void rmv_bg_job(pid_t pid) {
+    struct bg_job *it, *to_rmv, *prv;
+    if(head != NULL && head->pid == pid) {
+        to_rmv = head;
+        head = head->next;
+    } else {
+        printf("return here\n");
+        for(it=head;it!=NULL;prv=it,it=it->next) {
+            if(it->pid == pid) {
+                to_rmv = it;
+                break;
+            }
+        }
+        prv->next = to_rmv->next;
+    }
+    free(to_rmv->pname);
+    free(to_rmv);
+}
+
+void list_bg_jobs(struct bg_job **it) {
+    if(*it==NULL)
+        return;
+    list_bg_jobs(&((*it)->next));
+    printf("%s [%d]\n",(*it)->pname,(*it)->pid);
+}
+
+int is_bg_job(pid_t pid) {
+    struct bg_job *it;
+    if(head != NULL && head->pid == pid) {
+        return 1;
+    } else {
+        for(it=head;it->next!=NULL;it=it->next) {
+            if(it->next->pid == pid)
+                return 1;
+        }
+    }
+    return 0;
+}
+
+/* end of linked list structure related things */
+
 int _cd(char **args);
 int _help(char **args);
 int _kill(char **args);
@@ -22,9 +81,6 @@ int _jobs(char **args);
 static char *built_in_commands[] = {"cd","kill","jobs","help"};
 static int(*built_in_functions[])(char **) = {_cd,_kill,_jobs,_help};
 static int num_built_ins = sizeof(built_in_commands) / sizeof(char *);
-
-char bg_jobs[128][128];
-int num_bg_jobs;
 
 int _cd(char **args) {
     if (chdir(args[1]) < 0) {
@@ -35,16 +91,17 @@ int _cd(char **args) {
 
 int _kill(char **args) {
     pid_t p = atoi(args[1]);
-    printf("KILL PID: %d\n", p);
     if( kill(p, SIGKILL) == -1)
         perror(args[1]);
+    else {
+        rmv_bg_job(p);
+        printf("KILLED PID: %d\n", p);
+    }
 }
 
 int _jobs(char **args) {
-    int i;
-    for(i=0;i<num_bg_jobs;++i) {
-        printf("%d: %s\n",i+1,bg_jobs[i]);
-    }
+    list_bg_jobs(&head);
+    return 1;
 }
 
 int _help(char **args) {
@@ -63,7 +120,7 @@ int built_in(char **command) {
     return -1;
 }
 
-int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *append, int *bg_up, int *bg_down) {
+int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *append, int *bg) {
     static char *buf, *rest;
     static char path[PATH_MAX]; getcwd(path,PATH_MAX);
     static char hname[32]; gethostname(hname,32);
@@ -77,8 +134,7 @@ int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *
     downstream[0] = NULL;
     strcpy(fwrite,"");
     *append = 0;
-    *bg_up = 0;
-    *bg_down = 0;
+    *bg = 0;
 
     if (buf) free(buf);
     buf = readline(prompt);
@@ -102,17 +158,10 @@ int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *
                     *append = !strcmp(*downstream,">>");
                     *downstream = NULL;
                     strcpy(fwrite,strtok_r(rest, "",&rest));
-                    for(i=0;i<sizeof(upstream)/sizeof(char *);++i){
-                        if(!downstream[i]) break;
-                    }
-                    *bg_down = !strcmp(downstream[i-1],"&");
-                    if(*bg_down)
-                        downstream[i-1] = NULL;
                     return 1;
                 }
                 ++downstream;
             }
-            *bg_down = !strcmp(*downstream,"&");
             return 1;
         } else if (!strcmp(*upstream, ">") || !strcmp(*upstream, ">>")) {
             *append = !strcmp(*upstream,">>");
@@ -125,8 +174,8 @@ int parse_input_and_args(char **upstream, char **downstream, char *fwrite, int *
     for(i=0;i<sizeof(upstream)/sizeof(char *);++i){
         if(!upstream[i]) break;
     }
-    *bg_up = !strcmp(upstream[i-1],"&");
-    if(*bg_up)
+    *bg = !strcmp(upstream[i-1],"&");
+    if(*bg)
         upstream[i-1] = NULL;
     return 1;
 }
@@ -170,12 +219,23 @@ void redirect_to_file(void (*function)(), char *fout, int append) {
     }
 }
 
+void child_terminated_handler(int signum) {
+    pid_t pid;
+    int status;
+    pid = waitpid(-1,&status,WNOHANG);
+    if (pid == -1 || status == SIGKILL) return;
+    if (is_bg_job(pid)) {
+        printf("FINISHED PID %d\n",pid);
+        rmv_bg_job(pid);
+    }
+}
+
 int main() {
     rl_bind_key('\t', rl_complete);
     char *upstream[ARG_MAX/2];
     char *downstream[ARG_MAX/2];
     char fwrite[PATH_MAX];
-    int append, bg_up, bg_down;
+    int append, bg;
     int p[2];
 
     void execute_upstream() {
@@ -190,8 +250,10 @@ int main() {
         exit(1);
     }
 
-    while(parse_input_and_args(upstream, downstream, fwrite, &append, &bg_up, &bg_down) > 0) {   
+    while(parse_input_and_args(upstream, downstream, fwrite, &append, &bg) > 0) {   
         if (!upstream[0]) continue;
+        if(bg) signal(SIGCHLD, child_terminated_handler);
+        else signal(SIGCHLD, SIG_IGN);
         if (downstream[0] == NULL) {
             /* no downstream = no pipe so just normal command 
                 before fork, check if built in command to execute as must execute in main
@@ -200,35 +262,34 @@ int main() {
             if (built_in(upstream) != -1)
                 continue;
 
-            char bg_name[128];
-            pid_t pid = fork();
-            if(pid == 0) {
+            pid_t pid;
+            if((pid = fork()) == 0) {
                 /* child */
                 if (strlen(fwrite) == 0)
                     execute_upstream();
                 else
                     redirect_to_file(execute_upstream,fwrite,append);
             } else {
-                if(!bg_up)
+                if(!bg)
                     waitpid(pid,NULL,0); /* don't do anything with return status of child yet */
                 else {
                     printf("background process started: %d\n", pid);
-                    sprintf(bg_name, "%s[%d]",upstream[0],pid);
-                    strcpy(bg_jobs[num_bg_jobs++],bg_name);
+                    add_bg_job(upstream[0], pid);
                 }
             }
         } else {
             /* is downstream = pipe so fork again */
+            pid_t ppid,cpid;
             pipe(p);
             /* fork twice, creating two children one for each command so not running exec in main */
-            if(fork() == 0) {
+            if((ppid = fork()) == 0) {
                 /* parent - upstream */
                 dup2(p[1],1);
                 close(p[0]);
 
                 execute_upstream();
             } 
-            if(fork() == 0) {
+            if((cpid = fork()) == 0) {
                 /* child - downstream */
                 dup2(p[0],0);
                 close(p[1]);
@@ -243,8 +304,8 @@ int main() {
                 close(p[0]);
                 close(p[1]);
                 /* wait for both children to terminate */
-                wait(0);
-                wait(0);
+                waitpid(ppid,NULL,0);
+                waitpid(cpid,NULL,0);
             }
         }
     }
