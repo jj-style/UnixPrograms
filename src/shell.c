@@ -38,7 +38,6 @@ void rmv_bg_job(pid_t pid) {
         to_rmv = head;
         head = head->next;
     } else {
-        printf("return here\n");
         for(it=head;it!=NULL;prv=it,it=it->next) {
             if(it->pid == pid) {
                 to_rmv = it;
@@ -219,23 +218,13 @@ void redirect_to_file(void (*function)(), char *fout, int append) {
     }
 }
 
-void child_terminated_handler(int signum) {
-    pid_t pid;
-    int status;
-    pid = waitpid(-1,&status,WNOHANG);
-    if (pid == -1 || status == SIGKILL) return;
-    if (is_bg_job(pid)) {
-        printf("FINISHED PID %d\n",pid);
-        rmv_bg_job(pid);
-    }
-}
-
 int main() {
     rl_bind_key('\t', rl_complete);
     char *upstream[ARG_MAX/2];
     char *downstream[ARG_MAX/2];
     char fwrite[PATH_MAX];
     int append, bg;
+    pid_t finish_pid;
     int p[2];
 
     void execute_upstream() {
@@ -249,11 +238,13 @@ int main() {
         fprintf(stderr, "command '%s' not found\n",downstream[0]);
         exit(1);
     }
-
-    while(parse_input_and_args(upstream, downstream, fwrite, &append, &bg) > 0) {   
+    while(parse_input_and_args(upstream, downstream, fwrite, &append, &bg) > 0) {
+        finish_pid = waitpid(-1, NULL, WNOHANG);
+        if (finish_pid > 0) {
+            printf("FINISHED PID %d\n", finish_pid);
+            rmv_bg_job(finish_pid);
+        }
         if (!upstream[0]) continue;
-        if(bg) signal(SIGCHLD, child_terminated_handler);
-        else signal(SIGCHLD, SIG_IGN);
         if (downstream[0] == NULL) {
             /* no downstream = no pipe so just normal command 
                 before fork, check if built in command to execute as must execute in main
