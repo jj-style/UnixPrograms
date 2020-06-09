@@ -73,18 +73,25 @@ int is_bg_job(pid_t pid) {
 /* end of linked list structure related things */
 
 int _cd(char **args);
+int _pwd(char **args);
 int _help(char **args);
 int _kill(char **args);
 int _jobs(char **args);
 
-static char *built_in_commands[] = {"cd","kill","jobs","help"};
-static int(*built_in_functions[])(char **) = {_cd,_kill,_jobs,_help};
+static char *built_in_commands[] = {"cd","pwd","kill","jobs","help"};
+static int(*built_in_functions[])(char **) = {_cd,_pwd,_kill,_jobs,_help};
 static int num_built_ins = sizeof(built_in_commands) / sizeof(char *);
 
 int _cd(char **args) {
-    if (chdir(args[1]) < 0) {
+    if (chdir(args[1]) < 0)
         perror(args[1]);
-    }
+    return 1;
+}
+
+int _pwd(char **args) {
+    char cwd[PATH_MAX];
+    getcwd(cwd,PATH_MAX);
+    printf("%s\n",cwd);
     return 1;
 }
 
@@ -96,6 +103,7 @@ int _kill(char **args) {
         rmv_bg_job(p);
         printf("KILLED PID: %d\n", p);
     }
+    return 1;
 }
 
 int _jobs(char **args) {
@@ -105,9 +113,9 @@ int _jobs(char **args) {
 
 int _help(char **args) {
     int i;
-    for(i=0;i<num_built_ins;++i) {
+    for(i=0;i<num_built_ins;++i)
         printf("%s\n",built_in_commands[i]);
-    }
+    return 1;
 }
 
 int built_in(char **command) {
