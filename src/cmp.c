@@ -56,5 +56,9 @@ int main(int argc, char *argv[] ) {
             ++line;
         ++byte;
     }
+
+    fclose(f1);
+    fclose(f2);
+    
     return 0;
 }
